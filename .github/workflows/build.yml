@@ -3,26 +3,25 @@ name: Build PathPilot ASI
 on:
   workflow_dispatch:
   push:
-    branches:
-      - main
+    paths:
+      - 'PathPilotASI.cpp'
+      - 'PathPilotASI.vcxproj'
+      - '.github/workflows/build.yml'
 
 jobs:
   build:
-    runs-on: windows-2022
+    runs-on: windows-2025-vs2026
 
     steps:
       - name: Checkout PathPilot
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Checkout Plugin-SDK
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           repository: DK22Pac/plugin-sdk
           path: plugin-sdk
           submodules: recursive
-
-      - name: Setup MSBuild
-        uses: microsoft/setup-msbuild@v2
 
       - name: Generate Plugin-SDK solution
         shell: cmd
@@ -30,21 +29,32 @@ jobs:
           set PLUGIN_SDK_DIR=%GITHUB_WORKSPACE%\plugin-sdk
           call "%PLUGIN_SDK_DIR%\tools\generate\Visual Studio.bat"
 
-      - name: Build Plugin-SDK GTA SA
+      - name: Build GTA SA Plugin-SDK library
         shell: cmd
         run: |
           set PLUGIN_SDK_DIR=%GITHUB_WORKSPACE%\plugin-sdk
+          set MSBUILD="C:\Program Files\Microsoft Visual Studio\18\Enterprise\MSBuild\Current\Bin\MSBuild.exe"
           cd /d "%PLUGIN_SDK_DIR%"
-          msbuild plugin_sa\Plugin_SA.vcxproj /p:Configuration=zDebug /p:Platform=Win32 /m
+          %MSBUILD% plugin.slnx /p:Configuration=zDebug /p:Platform="Mixed Platforms" /p:PlatformToolset=v145 /t:plugin_sa /m /verbosity:minimal
 
       - name: Build PathPilot
         shell: cmd
         run: |
           set PLUGIN_SDK_DIR=%GITHUB_WORKSPACE%\plugin-sdk
-          msbuild PathPilotASI.vcxproj /p:Configuration=Release /p:Platform=Win32 /m
+          set MSBUILD="C:\Program Files\Microsoft Visual Studio\18\Enterprise\MSBuild\Current\Bin\MSBuild.exe"
+          %MSBUILD% PathPilotASI.vcxproj /p:Configuration=Release /p:Platform=Win32 /p:PlatformToolset=v145 /m /verbosity:minimal
+
+      - name: Verify output
+        shell: cmd
+        run: |
+          if not exist "bin\PathPilot.asi" (
+            echo PathPilot.asi was not produced.
+            exit /b 1
+          )
+          dir "bin\PathPilot.asi"
 
       - name: Upload PathPilot.asi
         uses: actions/upload-artifact@v4
         with:
           name: PathPilot-ASI
-          path: bin\PathPilot.asi
+          path: bin/PathPilot.asi
