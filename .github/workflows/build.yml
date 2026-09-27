@@ -1,0 +1,50 @@
+name: Build PathPilot ASI
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: windows-2022
+
+    steps:
+      - name: Checkout PathPilot
+        uses: actions/checkout@v4
+
+      - name: Checkout Plugin-SDK
+        uses: actions/checkout@v4
+        with:
+          repository: DK22Pac/plugin-sdk
+          path: plugin-sdk
+          submodules: recursive
+
+      - name: Setup MSBuild
+        uses: microsoft/setup-msbuild@v2
+
+      - name: Generate Plugin-SDK solution
+        shell: cmd
+        run: |
+          set PLUGIN_SDK_DIR=%GITHUB_WORKSPACE%\plugin-sdk
+          call "%PLUGIN_SDK_DIR%\tools\generate\Visual Studio.bat"
+
+      - name: Build Plugin-SDK GTA SA
+        shell: cmd
+        run: |
+          set PLUGIN_SDK_DIR=%GITHUB_WORKSPACE%\plugin-sdk
+          cd /d "%PLUGIN_SDK_DIR%"
+          msbuild plugin_sa\Plugin_SA.vcxproj /p:Configuration=zDebug /p:Platform=Win32 /m
+
+      - name: Build PathPilot
+        shell: cmd
+        run: |
+          set PLUGIN_SDK_DIR=%GITHUB_WORKSPACE%\plugin-sdk
+          msbuild PathPilotASI.vcxproj /p:Configuration=Release /p:Platform=Win32 /m
+
+      - name: Upload PathPilot.asi
+        uses: actions/upload-artifact@v4
+        with:
+          name: PathPilot-ASI
+          path: bin\PathPilot.asi
